@@ -7,9 +7,7 @@ Language models assign a probability to a sequence of words or tokens, effective
 
 **N-grams** are probabilistic models that assign a probability to a given word based on the preceding `n-1` words. Formally, an n-gram model calculates the probability of a sequence of words as follows:
 
-\[
-P(w_1, w_2, \ldots, w_n) = P(w_1) P(w_2 \mid w_1) P(w_3 \mid w_1, w_2) \cdots P(w_n \mid w_1, \ldots, w_{n-1}) = \prod_{k=1}^{n} P(w_k \mid w_1, \ldots, w_{k-1})
-\]
+$P(w_1, w_2, \ldots, w_n) = P(w_1) P(w_2 \mid w_1) P(w_3 \mid w_1, w_2) \cdots P(w_n \mid w_1, \ldots, w_{n-1}) = \prod_{k=1}^{n} P(w_k \mid w_1, \ldots, w_{k-1})$
 
 This is known as the **chain rule of probability**. However, as `n` increases, it becomes impractical to estimate the probability of each sequence due to the **sparsity** of language data—i.e., the chances of encountering a particular sequence of words, even in a large corpus, are low due to the creativity and subjectivity of natural language. Therefore, we often approximate these probabilities using shorter contexts, such as bigrams (`n=2`) or trigrams (`n=3`).
 
