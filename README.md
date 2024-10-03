@@ -13,18 +13,14 @@ This is known as the **chain rule of probability**. However, as `n` increases, i
 
 For an n-gram model, the probability of the next word is calculated based on the previous `n-1` words:
 
-$
-P(w_n \mid w_{n-1}, \ldots, w_1) \approx \frac{C(w_{n-1}, \ldots, w_1, w_n)}{C(w_{n-1}, \ldots, w_1)}
-$
+$P(w_n \mid w_{n-1}, \ldots, w_1) \approx \frac{C(w_{n-1}, \ldots, w_1, w_n)}{C(w_{n-1}, \ldots, w_1)}$
 
-where $ C(w_{n-1}, \ldots, w_1, w_n) $ represents the count of occurrences of the sequence `(w_{n-1}, ..., w_1, w_n)` in the training corpus, and $ C(w_{n-1}, \ldots, w_1) $ represents the count of the preceding sequence. However, relying purely on counts often leads to issues with **zero probabilities** for unseen sequences, which can be mitigated using **smoothing techniques** such as Laplace smoothing or Kneser-Ney smoothing.
+where $C(w_{n-1}, \ldots, w_1, w_n)$ represents the count of occurrences of the sequence `(w_{n-1}, ..., w_1, w_n)` in the training corpus, and $C(w_{n-1}, \ldots, w_1)$ represents the count of the preceding sequence. However, relying purely on counts often leads to issues with **zero probabilities** for unseen sequences, which can be mitigated using **smoothing techniques** such as Laplace smoothing or Kneser-Ney smoothing.
 
 ### Evaluating Language Models: Perplexity
 
 One common metric used to evaluate language models is **perplexity**. Perplexity measures how well a probability model predicts a sample and is defined as the exponentiated average negative log-likelihood of the sequence:
 
-$
-PP(W) = P(w_1, w_2, \ldots, w_n)^{-\frac{1}{n}} = 2^{-\frac{1}{n} \sum_{i=1}^{n} \log_2 P(w_i \mid w_1, \ldots, w_{i-1})}
-$
+$PP(W) = P(w_1, w_2, \ldots, w_n)^{-\frac{1}{n}} = 2^{-\frac{1}{n} \sum_{i=1}^{n} \log_2 P(w_i \mid w_1, \ldots, w_{i-1})}$
 
 A lower perplexity indicates a better predictive model, as it means the model assigns higher probabilities to the observed data.
