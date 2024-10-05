@@ -64,7 +64,7 @@ python3 classifier.py authorlist.txt -approach generative -test test_sents.txt
 ```
 Example 3: Discriminative Approach with Development Set
 ```bash
-python3 classifier.py authorlist.txt -approach discriminative 
+python3 classifier.py authorlist.txt -approach generative 
 ```
 Example 4: Discriminative Approach with Test File
 ```bash
