@@ -1,6 +1,6 @@
 # authorship-attribution
 ![Description](cover.png)
-This is a Python script that classifies sentences based on their authorship using two different approaches: **generative** and **discriminative**. It can either predict the author of given sentences or evaluate the classification accuracy on a development set.
+Classifier that classifies sentences based on their authorship using two different approaches: **generative** and **discriminative**. It can either predict the author of given sentences or evaluate the classification accuracy on a development set.
 
 ## Installation
 
@@ -30,7 +30,7 @@ The script requires the following Python packages:
     ```
 3. **Install Required Packages**
     ```bash
-    pip install nltk transformers datasets evaluate
+    pip3 install nltk transformers datasets evaluate
     ```
 4. **Download NLTK Data**
     ```bash
@@ -55,21 +55,21 @@ The script requires the following Python packages:
 ### Examples
 Example 1: Generative Approach with Development Set
 ```bash
-python authorship_classifier.py -approach generative authorlist.txt
+python3 authorship_classifier.py -approach generative authorlist.txt
 ```
 
 Example 2: Generative Approach with Test File
 ```bash
-python authorship_classifier.py -approach generative -test test_sentences.txt authorlist.txt
+python3 authorship_classifier.py -approach generative -test test_sentences.txt authorlist.txt
 ```
 Example 3: Discriminative Approach with Development Set
 ```bash
-python authorship_classifier.py -approach discriminative authorlist.txt
+python3 authorship_classifier.py -approach discriminative authorlist.txt
 ```
 Example 4: Discriminative Approach with Test File
 ```bash
-python authorship_classifier.py -approach discriminative -test test_sentences.txt authorlist.txt
+python3 authorship_classifier.py -approach discriminative -test test_sentences.txt authorlist.txt
 ```
 
 ## License
-This project is licensed under the MIT License - see the LICENSE file for details.
+This project is licensed under the MIT License.
