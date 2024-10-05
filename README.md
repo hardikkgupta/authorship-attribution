@@ -55,20 +55,20 @@ The script requires the following Python packages:
 ### Examples
 Example 1: Generative Approach with Development Set
 ```bash
-python3 authorship_classifier.py -approach generative authorlist.txt
+python3 classifier.py authorlist.txt -approach generative 
 ```
 
 Example 2: Generative Approach with Test File
 ```bash
-python3 authorship_classifier.py -approach generative -test test_sentences.txt authorlist.txt
+python3 classifier.py authorlist.txt -approach generative -test test_sents.txt
 ```
 Example 3: Discriminative Approach with Development Set
 ```bash
-python3 authorship_classifier.py -approach discriminative authorlist.txt
+python3 classifier.py authorlist.txt -approach discriminative 
 ```
 Example 4: Discriminative Approach with Test File
 ```bash
-python3 authorship_classifier.py -approach discriminative -test test_sentences.txt authorlist.txt
+python3 classifier.py authorlist.txt -approach discriminative -test test_sents.txt
 ```
 
 ## License
