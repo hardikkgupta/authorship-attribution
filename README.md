@@ -1,4 +1,5 @@
 # authorship-attribution
+![Description](cover.png)
 ## Language Models
 
 Language models assign a probability to a sequence of words or tokens, effectively predicting the likelihood of the next token in a sequence. While Large Language Models (LLMs) have seen a surge in popularity in recent years due to their impressive capabilities, **n-gram models** remain a robust and interpretable subset of language models that are still valuable in certain contexts.
