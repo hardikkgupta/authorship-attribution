@@ -20,12 +20,12 @@ The script requires the following Python packages:
 1. **Clone the Repository**
 
    ```bash
-   git clone <repository_url>
-   cd <repository_directory>
+   git clone https://github.com/hardikkgupta/authorship-attribution.git
+   cd authorship-attribution
    ```
 2. **Create a Virtual Environment (Optional but Recommended)**
     ```bash
-    python3 -m venv venv
+    python3 -m venv
     source venv/bin/activate
     ```
 3. **Install Required Packages**
