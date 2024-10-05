@@ -1,5 +1,5 @@
 # authorship-attribution
-![Description](cover.png)
+![Description](data/cover.png)
 Classifier that classifies sentences based on their authorship using two different approaches: **generative** and **discriminative**. It can either predict the author of given sentences or evaluate the classification accuracy on a development set.
 
 ## Installation
