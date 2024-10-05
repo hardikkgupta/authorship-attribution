@@ -42,7 +42,7 @@ The script requires the following Python packages:
 
 ### Command-Line Arguments
 ```bash
-python3 classifier.py [-h] -approach {generative,discriminative} [-test TEST] authorlist
+python3 classifier.py authorlist.txt -approach {generative,discriminative} [-test TEST] 
 ```
 
 The script requires the following Python packages:
