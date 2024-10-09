@@ -11,7 +11,7 @@ import warnings
 warnings.filterwarnings("ignore")
 
 # For the generative model
-from nltk.lm import KneserNeyInterpolated, Laplace, WittenBellInterpolated
+from nltk.lm import MLE, Lidstone, WittenBellInterpolated, KneserNeyInterpolated, StupidBackoff
 from nltk.lm.preprocessing import padded_everygram_pipeline, pad_both_ends
 
 # For the discriminative model
@@ -28,28 +28,18 @@ def parse_args():
     parser = argparse.ArgumentParser(description='Authorship Classifier')
     parser.add_argument('authorlist', help='File containing list of author files')
     parser.add_argument('-approach', choices=['generative', 'discriminative'], required=True)
-    parser.add_argument('-smoothing', choices=['kneser-ney', 'laplace', 'witten-bell'], default='kneser-ney',
-                        help='Smoothing method for generative approach (default: kneser-ney)')
     parser.add_argument('-test', help='File containing test sentences')
     return parser.parse_args()
 
-def create_language_model(n, smoothing_method):
-    # Create a language model with the specified smoothing
-    if smoothing_method == 'kneser-ney':
-        model = KneserNeyInterpolated(order=n)
-    elif smoothing_method == 'laplace':
-        model = Laplace(order=n)
-    elif smoothing_method == 'witten-bell':
-        model = WittenBellInterpolated(order=n)
-    else:
-        raise ValueError(f"Unsupported smoothing method: {smoothing_method}")
+def create_language_model(n):
+    # Use Witten-Bell interpolation as basic interpolation method
+    model = WittenBellInterpolated(order=n)
     return model
 
 def main():
     args = parse_args()
     authorlist_file = args.authorlist
     approach = args.approach
-    smoothing_method = args.smoothing
     test_file = args.test
 
     # Set random seed for reproducibility
@@ -62,7 +52,7 @@ def main():
     # We can use the filename (without extension) as author name
     authors = []
     for filename in author_files:
-        author_name = os.path.splitext(os.path.basename(filename))[0]
+        author_name = filename.split('.')[0]
         authors.append((author_name, filename))
 
     if approach == 'generative':
@@ -89,11 +79,11 @@ def main():
                 author_dev_texts[author_name] = dev_sentences
 
         # Now, train language models for each author
-        n = 2  # Using bigrams for simplicity and speed
+        # Using bigrams for simplicity and speed
+        n = 2  # Using bigrams
 
         author_models = {}
 
-        print(f"Training LMs with {smoothing_method.replace('-', ' ').title()} smoothing...")
         for author_name in author_texts:
             train_sentences = author_texts[author_name]
             # Tokenize words in sentences
@@ -106,12 +96,8 @@ def main():
             train_data, padded_sents = padded_everygram_pipeline(n, tokenized_sentences)
             # Build the vocabulary
             vocab = set(chain.from_iterable(tokenized_sentences))
-            # Create language model with the specified smoothing
-            try:
-                model = create_language_model(n, smoothing_method)
-            except ValueError as e:
-                print(e)
-                sys.exit(1)
+            # Create language model with basic interpolation
+            model = create_language_model(n)
             model.fit(train_data, vocab)
             author_models[author_name] = model
 
@@ -125,21 +111,18 @@ def main():
                 perplexities = {}
                 for author_name, model in author_models.items():
                     # Map unknown words to <UNK>
-                    tokenized_sent_mapped = [word if word in model.vocab else '<UNK>' for word in tokenized_sent]
-                    # Prepare ngrams with padding
+                    tokenized_sent_mapped = list(model.vocab.lookup(tokenized_sent))
                     test_data = list(nltk.ngrams(pad_both_ends(tokenized_sent_mapped, n), n))
                     # Ensure test_data is not empty
                     if not test_data:
                         perplexities[author_name] = float('inf')
                         continue
                     try:
-                        # Calculate perplexity
                         perplexity = model.perplexity(test_data)
-                        # Ensure perplexity is not infinite or NaN
                         if math.isinf(perplexity) or math.isnan(perplexity):
-                            perplexity = 1e300  # Assign a very large number
+                            perplexity = 1e300  # Use a very large number
                     except (ZeroDivisionError, ValueError):
-                        perplexity = 1e300  # Assign a very large number
+                        perplexity = 1e300  # Use a very large number
                     perplexities[author_name] = perplexity
                 # Choose the author with lowest perplexity
                 predicted_author = min(perplexities, key=perplexities.get)
@@ -147,6 +130,7 @@ def main():
         else:
             # Evaluate on dev set
             print("Splitting into training and development...")
+            print("Training LMs... (this may take a while)")
             print("Results on dev set:")
             for author_name in author_dev_texts:
                 dev_sentences = author_dev_texts[author_name]
@@ -157,21 +141,18 @@ def main():
                     perplexities = {}
                     for candidate_author, model in author_models.items():
                         # Map unknown words to <UNK>
-                        tokenized_sent_mapped = [word if word in model.vocab else '<UNK>' for word in tokenized_sent]
-                        # Prepare ngrams with padding
+                        tokenized_sent_mapped = list(model.vocab.lookup(tokenized_sent))
                         test_data = list(nltk.ngrams(pad_both_ends(tokenized_sent_mapped, n), n))
                         # Ensure test_data is not empty
                         if not test_data:
                             perplexities[candidate_author] = float('inf')
                             continue
                         try:
-                            # Calculate perplexity
                             perplexity = model.perplexity(test_data)
-                            # Ensure perplexity is not infinite or NaN
                             if math.isinf(perplexity) or math.isnan(perplexity):
-                                perplexity = 1e300  # Assign a very large number
+                                perplexity = 1e300  # Use a very large number
                         except (ZeroDivisionError, ValueError):
-                            perplexity = 1e300  # Assign a very large number
+                            perplexity = 1e300  # Use a very large number
                         perplexities[candidate_author] = perplexity
                     # Choose the author with lowest perplexity
                     predicted_author = min(perplexities, key=perplexities.get)
@@ -179,7 +160,7 @@ def main():
                         correct += 1
                     total += 1
                 accuracy = 100.0 * correct / total if total > 0 else 0
-                print(f"{author_name} {accuracy:.2f}% correct")
+                print(f"{author_name} {accuracy:.1f}% correct")
 
     elif approach == 'discriminative':
         if test_file:
@@ -306,7 +287,7 @@ def main():
                 correct = correct_counts[author_name]
                 total = total_counts[author_name]
                 accuracy = 100.0 * correct / total if total > 0 else 0
-                print(f"{author_name} {accuracy:.2f}% correct")
+                print(f"{author_name} {accuracy:.1f}% correct")
         else:
             # Predict on test set
             predictions = trainer.predict(tokenized_eval)

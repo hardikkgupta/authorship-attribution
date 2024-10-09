@@ -11,15 +11,16 @@ import warnings
 warnings.filterwarnings("ignore")
 
 # For the generative model
-from nltk.lm import KneserNeyInterpolated, Laplace, WittenBellInterpolated
+from nltk.lm import Laplace
 from nltk.lm.preprocessing import padded_everygram_pipeline, pad_both_ends
 
 # For the discriminative model
 from transformers import AutoTokenizer, AutoModelForSequenceClassification, Trainer, TrainingArguments
 from transformers import DataCollatorWithPadding
+# from datasets import load_metric, Dataset, DatasetDict
 from datasets import Dataset, DatasetDict
 import evaluate
-import math
+
 
 # Download necessary NLTK data files
 nltk.download('punkt', quiet=True)
@@ -28,28 +29,13 @@ def parse_args():
     parser = argparse.ArgumentParser(description='Authorship Classifier')
     parser.add_argument('authorlist', help='File containing list of author files')
     parser.add_argument('-approach', choices=['generative', 'discriminative'], required=True)
-    parser.add_argument('-smoothing', choices=['kneser-ney', 'laplace', 'witten-bell'], default='kneser-ney',
-                        help='Smoothing method for generative approach (default: kneser-ney)')
     parser.add_argument('-test', help='File containing test sentences')
     return parser.parse_args()
-
-def create_language_model(n, smoothing_method):
-    # Create a language model with the specified smoothing
-    if smoothing_method == 'kneser-ney':
-        model = KneserNeyInterpolated(order=n)
-    elif smoothing_method == 'laplace':
-        model = Laplace(order=n)
-    elif smoothing_method == 'witten-bell':
-        model = WittenBellInterpolated(order=n)
-    else:
-        raise ValueError(f"Unsupported smoothing method: {smoothing_method}")
-    return model
 
 def main():
     args = parse_args()
     authorlist_file = args.authorlist
     approach = args.approach
-    smoothing_method = args.smoothing
     test_file = args.test
 
     # Set random seed for reproducibility
@@ -62,7 +48,7 @@ def main():
     # We can use the filename (without extension) as author name
     authors = []
     for filename in author_files:
-        author_name = os.path.splitext(os.path.basename(filename))[0]
+        author_name = filename.split('.')[0]
         authors.append((author_name, filename))
 
     if approach == 'generative':
@@ -74,8 +60,6 @@ def main():
                 text = f.read()
             # Tokenize sentences
             sentences = sent_tokenize(text)
-            # Limit data size for faster processing
-            sentences = sentences[:1000]  # Adjust as needed
             if test_file:
                 # Use all data as training
                 author_texts[author_name] = sentences
@@ -89,11 +73,11 @@ def main():
                 author_dev_texts[author_name] = dev_sentences
 
         # Now, train language models for each author
-        n = 2  # Using bigrams for simplicity and speed
+        # You can experiment with different 'n' and smoothing techniques
+        n = 3  # Using trigrams
 
         author_models = {}
 
-        print(f"Training LMs with {smoothing_method.replace('-', ' ').title()} smoothing...")
         for author_name in author_texts:
             train_sentences = author_texts[author_name]
             # Tokenize words in sentences
@@ -106,13 +90,14 @@ def main():
             train_data, padded_sents = padded_everygram_pipeline(n, tokenized_sentences)
             # Build the vocabulary
             vocab = set(chain.from_iterable(tokenized_sentences))
-            # Create language model with the specified smoothing
-            try:
-                model = create_language_model(n, smoothing_method)
-            except ValueError as e:
-                print(e)
-                sys.exit(1)
+            # Create language model with Laplace smoothing
+            model = Laplace(n)
             model.fit(train_data, vocab)
+            # Verify total counts
+            total_counts = model.counts.N()
+            print(f"Total counts for {author_name}: {total_counts}")
+            if total_counts == 0:
+                print(f"Warning: Model for {author_name} has zero total counts.")
             author_models[author_name] = model
 
         if test_file:
@@ -125,28 +110,17 @@ def main():
                 perplexities = {}
                 for author_name, model in author_models.items():
                     # Map unknown words to <UNK>
-                    tokenized_sent_mapped = [word if word in model.vocab else '<UNK>' for word in tokenized_sent]
-                    # Prepare ngrams with padding
+                    tokenized_sent_mapped = list(model.vocab.lookup(tokenized_sent))
                     test_data = list(nltk.ngrams(pad_both_ends(tokenized_sent_mapped, n), n))
-                    # Ensure test_data is not empty
-                    if not test_data:
-                        perplexities[author_name] = float('inf')
-                        continue
-                    try:
-                        # Calculate perplexity
-                        perplexity = model.perplexity(test_data)
-                        # Ensure perplexity is not infinite or NaN
-                        if math.isinf(perplexity) or math.isnan(perplexity):
-                            perplexity = 1e300  # Assign a very large number
-                    except (ZeroDivisionError, ValueError):
-                        perplexity = 1e300  # Assign a very large number
+                    perplexity = model.perplexity(test_data)
                     perplexities[author_name] = perplexity
                 # Choose the author with lowest perplexity
                 predicted_author = min(perplexities, key=perplexities.get)
                 print(predicted_author)
         else:
             # Evaluate on dev set
-            print("Splitting into training and development...")
+            print("splitting into training and development...")
+            print("training LMs... (this may take a while)")
             print("Results on dev set:")
             for author_name in author_dev_texts:
                 dev_sentences = author_dev_texts[author_name]
@@ -157,21 +131,18 @@ def main():
                     perplexities = {}
                     for candidate_author, model in author_models.items():
                         # Map unknown words to <UNK>
-                        tokenized_sent_mapped = [word if word in model.vocab else '<UNK>' for word in tokenized_sent]
-                        # Prepare ngrams with padding
+                        tokenized_sent_mapped = list(model.vocab.lookup(tokenized_sent))
                         test_data = list(nltk.ngrams(pad_both_ends(tokenized_sent_mapped, n), n))
                         # Ensure test_data is not empty
                         if not test_data:
+                            print(f"Warning: Test data is empty for sentence: '{sent}'")
                             perplexities[candidate_author] = float('inf')
                             continue
                         try:
-                            # Calculate perplexity
                             perplexity = model.perplexity(test_data)
-                            # Ensure perplexity is not infinite or NaN
-                            if math.isinf(perplexity) or math.isnan(perplexity):
-                                perplexity = 1e300  # Assign a very large number
-                        except (ZeroDivisionError, ValueError):
-                            perplexity = 1e300  # Assign a very large number
+                        except ZeroDivisionError:
+                            print(f"Warning: Division by zero for author {candidate_author} on sentence '{sent}'")
+                            perplexity = float('inf')
                         perplexities[candidate_author] = perplexity
                     # Choose the author with lowest perplexity
                     predicted_author = min(perplexities, key=perplexities.get)
@@ -179,7 +150,21 @@ def main():
                         correct += 1
                     total += 1
                 accuracy = 100.0 * correct / total if total > 0 else 0
-                print(f"{author_name} {accuracy:.2f}% correct")
+                print(f"{author_name} {accuracy:.1f}% correct")
+
+            # Generate samples from each model
+            prompt = 'Once upon a time'
+            tokenized_prompt = word_tokenize(prompt.lower())
+
+            for author_name, model in author_models.items():
+                print(f"\nSamples from {author_name}'s model:")
+                for i in range(5):
+                    generated_words = model.generate(15, text_seed=tokenized_prompt)
+                    generated_sentence = ' '.join(generated_words)
+                    print(f"{i+1}: {generated_sentence}")
+        # Existing generative code...
+        # [Assuming the code from Step 1 is here]
+        pass
 
     elif approach == 'discriminative':
         if test_file:
@@ -200,8 +185,6 @@ def main():
                 text = f.read()
             # Tokenize into sentences
             sentences = sent_tokenize(text)
-            # Limit data size for faster processing
-            sentences = sentences[:1000]  # Adjust as needed
             for sent in sentences:
                 texts.append(sent)
                 labels.append(idx)
@@ -220,6 +203,7 @@ def main():
             # If test file is provided, load test data
             with open(test_file, 'r', encoding='utf8') as f:
                 test_texts = [line.strip() for line in f if line.strip()]
+            # test_labels = [-1]*len(test_texts)  # Dummy labels
             eval_dataset = Dataset.from_dict({'text': test_texts})
 
         # Load tokenizer and model
@@ -236,7 +220,7 @@ def main():
 
         # Tokenize datasets
         def tokenize_function(examples):
-            return tokenizer(examples['text'], truncation=True, padding=True, max_length=128)
+            return tokenizer(examples['text'], truncation=True)
 
         tokenized_train = train_dataset.map(tokenize_function, batched=True)
         tokenized_eval = eval_dataset.map(tokenize_function, batched=True)
@@ -245,13 +229,16 @@ def main():
         data_collator = DataCollatorWithPadding(tokenizer=tokenizer)
 
         # Metrics
+        # metric = load_metric("accuracy")
         metric = evaluate.load("accuracy")
+
 
         def compute_metrics(p):
             predictions, labels = p
             preds = predictions.argmax(-1)
-            if labels is not None:
-                accuracy = metric.compute(predictions=preds, references=labels)
+            valid_indices = labels != -1  # Only compute accuracy on valid labels
+            if valid_indices.any():
+                accuracy = metric.compute(predictions=preds[valid_indices], references=labels[valid_indices])
                 return accuracy
             else:
                 return {}
@@ -259,13 +246,14 @@ def main():
         # Training arguments
         training_args = TrainingArguments(
             output_dir='./results',
-            num_train_epochs=1,  # Reduced epochs to decrease training time
-            per_device_train_batch_size=16,  # Increased batch size if memory allows
-            per_device_eval_batch_size=16,
+            num_train_epochs=3,
+            per_device_train_batch_size=8,
+            per_device_eval_batch_size=8,
             evaluation_strategy='epoch' if split_data else 'no',
-            logging_strategy='no',  # Disable logging to speed up training
+            logging_strategy='epoch',
             save_strategy='no',
             load_best_model_at_end=False,
+            metric_for_best_model='accuracy',
             seed=42
         )
 
@@ -306,7 +294,7 @@ def main():
                 correct = correct_counts[author_name]
                 total = total_counts[author_name]
                 accuracy = 100.0 * correct / total if total > 0 else 0
-                print(f"{author_name} {accuracy:.2f}% correct")
+                print(f"{author_name} {accuracy:.1f}% correct")
         else:
             # Predict on test set
             predictions = trainer.predict(tokenized_eval)
